@@ -1,0 +1,281 @@
+Setting environment for using XAMPP for Windows.
+Revan Oknanda@DESKTOP-ODTGVVT c:\xampp
+# mysql -u root
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 153
+Server version: 10.4.32-MariaDB mariadb.org binary distribution
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MariaDB [(none)]> drop database perbankan
+    -> ;
+Query OK, 5 rows affected (0.022 sec)
+
+MariaDB [(none)]> create database db_perbankan;
+Query OK, 1 row affected (0.001 sec)
+
+MariaDB [(none)]> use db_perbankan;
+Database changed
+
+CREATE TABLE jenis_rekening (
+    id_jenis INT PRIMARY KEY AUTO_INCREMENT,
+    nama_jenis VARCHAR(50),
+    biaya_tarik_tunai DECIMAL(10,2),
+    saldo_minimum DECIMAL(15,2),
+    kelipatan_poin INT
+);
+Query OK, 0 rows affected (0.011 sec)
+
+CREATE TABLE nasabah (
+    id_nasabah INT PRIMARY KEY AUTO_INCREMENT,
+    nama VARCHAR(100),
+    status VARCHAR(20) DEFAULT 'AKTIF',
+    poin INT DEFAULT 0
+);
+Query OK, 0 rows affected (0.004 sec)
+
+CREATE TABLE rekening (
+    no_rekening VARCHAR(20) PRIMARY KEY,
+    id_nasabah INT,
+    id_jenis INT,
+    saldo DECIMAL(15,2) DEFAULT 0,
+    pin VARCHAR(10),
+    FOREIGN KEY (id_nasabah) REFERENCES nasabah(id_nasabah),
+    FOREIGN KEY (id_jenis) REFERENCES jenis_rekening(id_jenis)
+);
+Query OK, 0 rows affected (0.014 sec)
+
+CREATE TABLE transaksi (
+    id_trx INT PRIMARY KEY AUTO_INCREMENT,
+    no_rekening VARCHAR(20),
+    jenis_trx VARCHAR(20),
+    jumlah DECIMAL(15,2),
+    tanggal DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (no_rekening) REFERENCES rekening(no_rekening)
+);
+Query OK, 0 rows affected (0.015 sec)
+
+CREATE TABLE log_audit (
+    id_log INT PRIMARY KEY AUTO_INCREMENT,
+    waktu DATETIME,
+    no_rek VARCHAR(20),
+    nama_nasabah VARCHAR(100),
+    aksi VARCHAR(50),
+    nominal DECIMAL(15,2)
+);
+Query OK, 0 rows affected (0.004 sec)
+
+INSERT INTO jenis_rekening (nama_jenis, biaya_tarik_tunai, saldo_minimum, kelipatan_poin) VALUES 
+('Reguler', 5000, 50000, 1),
+('Gold', 0, 5000000, 2);
+Query OK, 2 rows affected (0.003 sec)
+Records: 2  Duplicates: 0  Warnings: 0
+
+INSERT INTO nasabah (nama, status, poin) VALUES 
+('Budi Santoso', 'AKTIF', 0),
+('Rina Penipu', 'BLACKLIST', 0);
+Query OK, 2 rows affected (0.007 sec)
+Records: 2  Duplicates: 0  Warnings: 0
+
+MariaDB [db_perbankan]> INSERT INTO rekening (no_rekening, id_nasabah, id_jenis, saldo, pin)
+    -> VALUES
+    -> ('001', 1, 1, 1000000, '123456'),
+    -> ('002', 1, 2, 10000000, '123456'),
+    -> ('003', 2, 1, 500000, '111111');
+Query OK, 3 rows affected (0.007 sec)
+Records: 3  Duplicates: 0  Warnings: 0
+
+MariaDB [db_perbankan]> select * from jenis_rekening;
++----------+------------+-------------------+---------------+----------------+
+| id_jenis | nama_jenis | biaya_tarik_tunai | saldo_minimum | kelipatan_poin |
++----------+------------+-------------------+---------------+----------------+
+|        1 | Reguler    |           5000.00 |      50000.00 |              1 |
+|        2 | Gold       |              0.00 |    5000000.00 |              2 |
++----------+------------+-------------------+---------------+----------------+
+2 rows in set (0.000 sec)
+
+MariaDB [db_perbankan]> select * from rekening;
++-------------+------------+----------+-------------+--------+
+| no_rekening | id_nasabah | id_jenis | saldo       | pin    |
++-------------+------------+----------+-------------+--------+
+| 001         |          1 |        1 |  1000000.00 | 123456 |
+| 002         |          1 |        2 | 10000000.00 | 123456 |
+| 003         |          2 |        1 |   500000.00 | 111111 |
++-------------+------------+----------+-------------+--------+
+3 rows in set (0.000 sec)
+
+MariaDB [db_perbankan]> select * from nasabah;
++------------+--------------+-----------+------+
+| id_nasabah | nama         | status    | poin |
++------------+--------------+-----------+------+
+|          1 | Budi Santoso | AKTIF     |    0 |
+|          2 | Rina Penipu  | BLACKLIST |    0 |
++------------+--------------+-----------+------+
+2 rows in set (0.000 sec)
+
+MariaDB [db_perbankan]> CREATE VIEW vw_info_nasabah_cs AS
+    -> SELECT
+    ->     r.no_rekening,
+    ->     n.nama AS nama_nasabah,
+    ->     j.nama_jenis AS jenis_rekening,
+    ->     r.saldo
+    -> FROM rekening r
+    -> JOIN nasabah n ON r.id_nasabah = n.id_nasabah
+    -> JOIN jenis_rekening j ON r.id_jenis = j.id_jenis;
+Query OK, 0 rows affected (0.008 sec)
+
+MariaDB [db_perbankan]> CREATE VIEW vw_mutasi_rekening AS
+    -> SELECT
+    ->     t.tanggal,
+    ->     n.nama,
+    ->     t.jenis_trx,
+    ->     t.jumlah,
+    ->     j.nama_jenis
+    -> FROM transaksi t
+    -> JOIN rekening r ON t.no_rekening = r.no_rekening
+    -> JOIN nasabah n ON r.id_nasabah = n.id_nasabah
+    -> JOIN jenis_rekening j ON r.id_jenis = j.id_jenis
+    -> ORDER BY t.tanggal DESC;
+Query OK, 0 rows affected (0.008 sec)
+
+MariaDB [db_perbankan]> select*from vw_mutasi_rekening;
+Empty set (0.001 sec)
+
+MariaDB [db_perbankan]> select*from vw_info_nasabah_cs;
++-------------+--------------+----------------+-------------+
+| no_rekening | nama_nasabah | jenis_rekening | saldo       |
++-------------+--------------+----------------+-------------+
+| 001         | Budi Santoso | Reguler        |  1000000.00 |
+| 002         | Budi Santoso | Gold           | 10000000.00 |
+| 003         | Rina Penipu  | Reguler        |   500000.00 |
++-------------+--------------+----------------+-------------+
+3 rows in set (0.000 sec)
+
+MariaDB [db_perbankan]> DELIMITER //
+    -> CREATE TRIGGER trg_after_insert_transaksi
+    -> AFTER INSERT ON transaksi
+    -> FOR EACH ROW
+    -> BEGIN
+    ->     -- Update saldo
+    ->     UPDATE rekening r
+    ->     JOIN jenis_rekening j ON r.id_jenis = j.id_jenis
+    ->     SET r.saldo =
+    ->         CASE
+    ->             WHEN NEW.jenis_trx = 'TARIK' THEN r.saldo - NEW.jumlah - j.biaya_tarik_tunai
+    ->             WHEN NEW.jenis_trx = 'SETOR' THEN r.saldo + NEW.jumlah
+    ->             ELSE r.saldo
+    ->         END
+    ->     WHERE r.no_rekening = NEW.no_rekening;
+    ->
+    ->     -- Tambah poin
+    ->     UPDATE nasabah n
+    ->     JOIN rekening r ON n.id_nasabah = r.id_nasabah
+    ->     JOIN jenis_rekening j ON r.id_jenis = j.id_jenis
+    ->     SET n.poin = n.poin +
+    ->         CASE
+    ->             WHEN NEW.jenis_trx = 'SETOR' THEN (NEW.jumlah DIV 100000 * j.kelipatan_poin)
+    ->             ELSE 0
+    ->         END
+    ->     WHERE r.no_rekening = NEW.no_rekening;
+    ->
+    ->     -- Log
+    ->     INSERT INTO log_audit (waktu, no_rek, nama_nasabah, aksi, nominal)
+    ->     SELECT NOW(), r.no_rekening, n.nama, NEW.jenis_trx, NEW.jumlah
+    ->     FROM rekening r
+    ->     JOIN nasabah n ON r.id_nasabah = n.id_nasabah
+    ->     WHERE r.no_rekening = NEW.no_rekening;
+Query OK, 0 rows affected (0.009 sec)
+
+MariaDB [db_perbankan]> DELIMITER //
+    -> CREATE TRIGGER trg_after_update_transaksi
+    -> AFTER UPDATE ON transaksi
+    -> FOR EACH ROW
+    -> BEGIN
+    ->     INSERT INTO log_audit (waktu, no_rek, nama_nasabah, aksi, nominal)
+    ->     SELECT NOW(), NEW.no_rekening, n.nama, 'UPDATE', NEW.jumlah
+    ->     FROM rekening r
+    ->     JOIN nasabah n ON r.id_nasabah = n.id_nasabah
+    ->     WHERE r.no_rekening = NEW.no_rekening;
+    -> END//
+Query OK, 0 rows affected (0.014 sec)
+
+MariaDB [db_perbankan]> DELIMITER //
+    -> CREATE TRIGGER trg_after_delete_transaksi
+    -> AFTER DELETE ON transaksi
+    -> FOR EACH ROW
+    -> BEGIN
+    ->     INSERT INTO log_audit (waktu, no_rek, nama_nasabah, aksi, nominal)
+    ->     SELECT NOW(), OLD.no_rekening, n.nama, 'DELETE', OLD.jumlah
+    ->     FROM rekening r
+    ->     JOIN nasabah n ON r.id_nasabah = n.id_nasabah
+    ->     WHERE r.no_rekening = OLD.no_rekening;
+    -> END//
+Query OK, 0 rows affected (0.004 sec)
+
+MariaDB [db_perbankan]> DELIMITER //
+    -> CREATE TRIGGER trg_before_insert_transaksi
+    -> BEFORE INSERT ON transaksi
+    -> FOR EACH ROW
+    -> BEGIN
+    ->     DECLARE saldo_skrg DECIMAL(15,2);
+    ->     DECLARE saldo_min DECIMAL(15,2);
+    ->     DECLARE status_nasabah VARCHAR(20);
+    ->
+    ->     SELECT r.saldo, j.saldo_minimum, n.status
+    ->     INTO saldo_skrg, saldo_min, status_nasabah
+    ->     FROM rekening r
+    ->     JOIN jenis_rekening j ON r.id_jenis = j.id_jenis
+    ->     JOIN nasabah n ON r.id_nasabah = n.id_nasabah
+    ->     WHERE r.no_rekening = NEW.no_rekening;
+    ->
+    ->     -- BLACKLIST (tanpa IF)
+    ->     IF status_nasabah = 'BLACKLIST' THEN
+    ->         SIGNAL SQLSTATE '45000'
+    ->         SET MESSAGE_TEXT = 'Nasabah BLACKLIST';
+    ->     END IF;
+    ->
+    ->     -- SALDO MINIMUM
+    ->     IF NEW.jenis_trx = 'TARIK' AND (saldo_skrg - NEW.jumlah) < saldo_min THEN
+    ->         SIGNAL SQLSTATE '45000'
+    ->         SET MESSAGE_TEXT = 'Saldo tidak cukup';
+    ->     END IF;
+    ->
+    -> END//
+Query OK, 0 rows affected (0.010 sec)
+
+DELIMITER //
+
+CREATE TRIGGER trg_before_update_transaksi
+BEFORE UPDATE ON transaksi
+FOR EACH ROW
+BEGIN
+    IF OLD.jumlah <> NEW.jumlah THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Tidak boleh ubah jumlah';
+    END IF;
+END//
+
+DELIMITER ;
+Query OK, 0 rows affected (0.010 sec)
+
+DELIMITER //
+
+CREATE TRIGGER trg_before_delete_transaksi
+BEFORE DELETE ON transaksi
+FOR EACH ROW
+BEGIN
+    UPDATE rekening r
+    JOIN jenis_rekening j ON r.id_jenis = j.id_jenis
+    SET r.saldo = 
+        CASE 
+            WHEN OLD.jenis_trx = 'TARIK' THEN r.saldo + OLD.jumlah + j.biaya_tarik_tunai
+            WHEN OLD.jenis_trx = 'SETOR' THEN r.saldo - OLD.jumlah
+            ELSE r.saldo
+        END
+    WHERE r.no_rekening = OLD.no_rekening;
+END//
+
+DELIMITER ;
+Query OK, 0 rows affected (0.014 sec)
